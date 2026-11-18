@@ -1,0 +1,480 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isRecruiter() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'recruiter';
+    }
+
+    function isValidStringArray(arr, maxItems, maxLen) {
+      return arr is list
+        && arr.size() <= maxItems
+        && (arr.size() == 0 || (arr[0] is string && arr[0].size() <= maxLen));
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUserAccount(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'photoURL', 'companyName', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.role in ['candidate', 'recruiter']
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500))
+        && (!('companyName' in data) || (data.companyName is string && data.companyName.size() <= 150))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCandidateProfile(data) {
+      return data.keys().hasAll(['userId', 'fullName', 'isOpenToWork', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'userId', 'fullName', 'headline', 'location', 'education', 'university',
+          'graduationYear', 'technicalSkills', 'softSkills', 'experience', 'projects',
+          'certifications', 'linkedIn', 'github', 'photoURL', 'isOpenToWork', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 120
+        && (!('headline' in data) || (data.headline is string && data.headline.size() <= 200))
+        && (!('location' in data) || (data.location is string && data.location.size() <= 150))
+        && (!('education' in data) || (data.education is string && data.education.size() <= 200))
+        && (!('university' in data) || (data.university is string && data.university.size() <= 200))
+        && (!('graduationYear' in data) || (data.graduationYear is string && data.graduationYear.size() <= 20))
+        && (!('technicalSkills' in data) || isValidStringArray(data.technicalSkills, 60, 80))
+        && (!('softSkills' in data) || isValidStringArray(data.softSkills, 30, 80))
+        && (!('experience' in data) || (data.experience is list && data.experience.size() <= 25))
+        && (!('projects' in data) || (data.projects is list && data.projects.size() <= 25))
+        && (!('certifications' in data) || isValidStringArray(data.certifications, 30, 150))
+        && (!('linkedIn' in data) || (data.linkedIn is string && data.linkedIn.size() <= 300))
+        && (!('github' in data) || (data.github is string && data.github.size() <= 300))
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500))
+        && data.isOpenToWork is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRecruiterProfile(data) {
+      return data.keys().hasAll(['userId', 'fullName', 'companyName', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'fullName', 'companyName', 'companyWebsite', 'location', 'industry', 'photoURL', 'createdAt', 'updatedAt'])
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 120
+        && data.companyName is string && data.companyName.size() >= 1 && data.companyName.size() <= 150
+        && (!('companyWebsite' in data) || (data.companyWebsite is string && data.companyWebsite.size() <= 300))
+        && (!('location' in data) || (data.location is string && data.location.size() <= 150))
+        && (!('industry' in data) || (data.industry is string && data.industry.size() <= 100))
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidResume(data) {
+      return data.keys().hasAll(['id', 'userId', 'fileName', 'status', 'isSharedWithRecruiters', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'userId', 'fileName', 'fileSize', 'fileType', 'rawText', 'summary', 'parsedData', 'status', 'isSharedWithRecruiters', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 255
+        && (!('fileSize' in data) || (data.fileSize is number && data.fileSize >= 0 && data.fileSize <= 10485760))
+        && (!('fileType' in data) || (data.fileType is string && data.fileType.size() <= 120))
+        && (!('rawText' in data) || (data.rawText is string && data.rawText.size() <= 50000))
+        && (!('summary' in data) || (data.summary is string && data.summary.size() <= 3000))
+        && (!('parsedData' in data) || data.parsedData is map)
+        && data.status in ['pending', 'analyzed', 'failed']
+        && data.isSharedWithRecruiters is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidExtractedSkills(data) {
+      return data.keys().hasAll(['id', 'userId', 'resumeId', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'userId', 'resumeId', 'technicalSkills', 'programmingLanguages', 'frameworks', 'tools', 'softSkills', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && isValidId(data.resumeId)
+        && (!('technicalSkills' in data) || isValidStringArray(data.technicalSkills, 60, 80))
+        && (!('programmingLanguages' in data) || isValidStringArray(data.programmingLanguages, 40, 80))
+        && (!('frameworks' in data) || isValidStringArray(data.frameworks, 40, 80))
+        && (!('tools' in data) || isValidStringArray(data.tools, 40, 80))
+        && (!('softSkills' in data) || isValidStringArray(data.softSkills, 30, 80))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidJob(data) {
+      return data.keys().hasAll(['id', 'recruiterId', 'title', 'companyName', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'id', 'recruiterId', 'title', 'companyName', 'description', 'requiredSkills',
+          'preferredSkills', 'educationRequirement', 'experienceRequired', 'salaryRange',
+          'location', 'jobType', 'vacancies', 'deadline', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.recruiterId)
+        && data.recruiterId == request.auth.uid
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 150
+        && data.companyName is string && data.companyName.size() >= 1 && data.companyName.size() <= 150
+        && (!('description' in data) || (data.description is string && data.description.size() <= 15000))
+        && (!('requiredSkills' in data) || isValidStringArray(data.requiredSkills, 30, 80))
+        && (!('preferredSkills' in data) || isValidStringArray(data.preferredSkills, 30, 80))
+        && (!('educationRequirement' in data) || (data.educationRequirement is string && data.educationRequirement.size() <= 200))
+        && (!('experienceRequired' in data) || (data.experienceRequired is string && data.experienceRequired.size() <= 100))
+        && (!('salaryRange' in data) || (data.salaryRange is string && data.salaryRange.size() <= 100))
+        && (!('location' in data) || (data.location is string && data.location.size() <= 150))
+        && (!('jobType' in data) || (data.jobType is string && data.jobType.size() <= 60))
+        && (!('vacancies' in data) || (data.vacancies is number && data.vacancies >= 1 && data.vacancies <= 500))
+        && (!('deadline' in data) || (data.deadline is string && data.deadline.size() <= 40))
+        && data.status in ['published', 'draft', 'closed']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidJobMatch(data) {
+      return data.keys().hasAll(['id', 'userId', 'jobId', 'resumeId', 'recruiterId', 'overallScore', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'id', 'userId', 'jobId', 'resumeId', 'recruiterId', 'overallScore',
+          'skillsMatch', 'educationMatch', 'experienceMatch', 'projectRelevance',
+          'locationMatch', 'matchedSkills', 'missingSkills', 'explanation', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && isValidId(data.jobId)
+        && isValidId(data.resumeId)
+        && isValidId(data.recruiterId)
+        && data.overallScore is number && data.overallScore >= 0 && data.overallScore <= 100
+        && (!('skillsMatch' in data) || (data.skillsMatch is number && data.skillsMatch >= 0 && data.skillsMatch <= 100))
+        && (!('educationMatch' in data) || (data.educationMatch is number && data.educationMatch >= 0 && data.educationMatch <= 100))
+        && (!('experienceMatch' in data) || (data.experienceMatch is number && data.experienceMatch >= 0 && data.experienceMatch <= 100))
+        && (!('projectRelevance' in data) || (data.projectRelevance is number && data.projectRelevance >= 0 && data.projectRelevance <= 100))
+        && (!('locationMatch' in data) || (data.locationMatch is number && data.locationMatch >= 0 && data.locationMatch <= 100))
+        && (!('matchedSkills' in data) || isValidStringArray(data.matchedSkills, 40, 80))
+        && (!('missingSkills' in data) || isValidStringArray(data.missingSkills, 40, 80))
+        && (!('explanation' in data) || (data.explanation is string && data.explanation.size() <= 2000))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidApplication(data) {
+      return data.keys().hasAll(['id', 'jobId', 'recruiterId', 'candidateId', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'id', 'jobId', 'recruiterId', 'candidateId', 'candidateName', 'candidateEmail',
+          'candidateEducation', 'resumeId', 'jobTitle', 'companyName', 'matchScore',
+          'matchedSkills', 'missingSkills', 'status', 'remarks', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.jobId)
+        && isValidId(data.recruiterId)
+        && isValidId(data.candidateId)
+        && (!('candidateName' in data) || (data.candidateName is string && data.candidateName.size() <= 120))
+        && (!('candidateEmail' in data) || (data.candidateEmail is string && data.candidateEmail.size() <= 200))
+        && (!('candidateEducation' in data) || (data.candidateEducation is string && data.candidateEducation.size() <= 200))
+        && (!('resumeId' in data) || isValidId(data.resumeId))
+        && (!('jobTitle' in data) || (data.jobTitle is string && data.jobTitle.size() <= 150))
+        && (!('companyName' in data) || (data.companyName is string && data.companyName.size() <= 150))
+        && (!('matchScore' in data) || (data.matchScore is number && data.matchScore >= 0 && data.matchScore <= 100))
+        && (!('matchedSkills' in data) || isValidStringArray(data.matchedSkills, 40, 80))
+        && (!('missingSkills' in data) || isValidStringArray(data.missingSkills, 40, 80))
+        && data.status in ['Applied', 'Under Review', 'Shortlisted', 'Interview Scheduled', 'Selected', 'Rejected']
+        && (!('remarks' in data) || (data.remarks is string && data.remarks.size() <= 2000))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSavedJob(data) {
+      return data.keys().hasAll(['id', 'userId', 'jobId', 'createdAt'])
+        && data.keys().hasOnly(['id', 'userId', 'jobId', 'createdAt'])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && isValidId(data.jobId)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidShortlistedCandidate(data) {
+      return data.keys().hasAll(['id', 'recruiterId', 'candidateId', 'jobId', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'recruiterId', 'candidateId', 'jobId', 'matchScore', 'notes', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && isValidId(data.recruiterId)
+        && data.recruiterId == request.auth.uid
+        && isValidId(data.candidateId)
+        && isValidId(data.jobId)
+        && (!('matchScore' in data) || (data.matchScore is number && data.matchScore >= 0 && data.matchScore <= 100))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 2000))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'message', 'read', 'createdAt'])
+        && data.keys().hasOnly(['id', 'userId', 'title', 'message', 'type', 'read', 'createdAt'])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 150
+        && data.message is string && data.message.size() >= 1 && data.message.size() <= 500
+        && (!('type' in data) || data.type in ['match', 'application', 'shortlist', 'analysis', 'system'])
+        && data.read is bool
+        && data.createdAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if false;
+      allow create: if isVerified() && isValidId(userId) && request.auth.uid == userId
+        && isValidUserAccount(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(userId) && request.auth.uid == userId
+        && isValidUserAccount(incoming())
+        && incoming().uid == existing().uid
+        && incoming().role == existing().role
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'companyName', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /candidate_profiles/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || (isRecruiter() && existing().isOpenToWork == true));
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.isOpenToWork == true);
+      allow create: if isVerified() && isValidId(userId) && request.auth.uid == userId
+        && isValidCandidateProfile(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(userId) && request.auth.uid == userId
+        && isValidCandidateProfile(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'fullName', 'headline', 'location', 'education', 'university', 'graduationYear',
+          'technicalSkills', 'softSkills', 'experience', 'projects', 'certifications',
+          'linkedIn', 'github', 'photoURL', 'isOpenToWork', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /recruiter_profiles/{userId} {
+      allow get: if isSignedIn() && isValidId(userId);
+      allow list: if false;
+      allow create: if isVerified() && isValidId(userId) && request.auth.uid == userId
+        && isValidRecruiterProfile(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(userId) && request.auth.uid == userId
+        && isValidRecruiterProfile(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'companyName', 'companyWebsite', 'location', 'industry', 'photoURL', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /resumes/{resumeId} {
+      allow get: if isSignedIn() && isValidId(resumeId) && (existing().userId == request.auth.uid || (isRecruiter() && existing().isSharedWithRecruiters == true));
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.isSharedWithRecruiters == true);
+      allow create: if isVerified() && isValidId(resumeId)
+        && isValidResume(incoming())
+        && incoming().id == resumeId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(resumeId) && existing().userId == request.auth.uid
+        && isValidResume(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['fileName', 'rawText', 'summary', 'parsedData', 'status', 'isSharedWithRecruiters', 'updatedAt']);
+      allow delete: if isVerified() && isValidId(resumeId) && existing().userId == request.auth.uid;
+    }
+
+    match /extracted_skills/{skillDocId} {
+      allow get: if isSignedIn() && isValidId(skillDocId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidId(skillDocId)
+        && isValidExtractedSkills(incoming())
+        && incoming().id == skillDocId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/resumes/$(incoming().resumeId));
+      allow update: if isVerified() && isValidId(skillDocId) && existing().userId == request.auth.uid
+        && isValidExtractedSkills(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().resumeId == existing().resumeId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['technicalSkills', 'programmingLanguages', 'frameworks', 'tools', 'softSkills', 'updatedAt']);
+      allow delete: if isVerified() && isValidId(skillDocId) && existing().userId == request.auth.uid;
+    }
+
+    match /jobs/{jobId} {
+      allow get: if isValidId(jobId) && (existing().status == 'published' || (isSignedIn() && existing().recruiterId == request.auth.uid));
+      allow list: if resource.data.status == 'published' || (isSignedIn() && resource.data.recruiterId == request.auth.uid);
+      allow create: if isVerified() && isValidId(jobId)
+        && isValidJob(incoming())
+        && incoming().id == jobId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isRecruiter();
+      allow update: if isVerified() && isValidId(jobId) && existing().recruiterId == request.auth.uid
+        && isValidJob(incoming())
+        && incoming().id == existing().id
+        && incoming().recruiterId == existing().recruiterId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'companyName', 'description', 'requiredSkills', 'preferredSkills',
+          'educationRequirement', 'experienceRequired', 'salaryRange', 'location',
+          'jobType', 'vacancies', 'deadline', 'status', 'updatedAt'
+        ]);
+      allow delete: if isVerified() && isValidId(jobId) && existing().recruiterId == request.auth.uid;
+    }
+
+    match /job_matches/{matchId} {
+      allow get: if isSignedIn() && isValidId(matchId) && (existing().userId == request.auth.uid || existing().recruiterId == request.auth.uid);
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.recruiterId == request.auth.uid);
+      allow create: if isVerified() && isValidId(matchId)
+        && isValidJobMatch(incoming())
+        && incoming().id == matchId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/jobs/$(incoming().jobId));
+      allow update: if isVerified() && isValidId(matchId) && existing().userId == request.auth.uid
+        && isValidJobMatch(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().jobId == existing().jobId
+        && incoming().resumeId == existing().resumeId
+        && incoming().recruiterId == existing().recruiterId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'overallScore', 'skillsMatch', 'educationMatch', 'experienceMatch',
+          'projectRelevance', 'locationMatch', 'matchedSkills', 'missingSkills',
+          'explanation', 'updatedAt'
+        ]);
+      allow delete: if isVerified() && isValidId(matchId) && existing().userId == request.auth.uid;
+    }
+
+    match /applications/{appId} {
+      allow get: if isSignedIn() && isValidId(appId) && (existing().candidateId == request.auth.uid || existing().recruiterId == request.auth.uid);
+      allow list: if isSignedIn() && (resource.data.candidateId == request.auth.uid || resource.data.recruiterId == request.auth.uid);
+      allow create: if isVerified() && isValidId(appId)
+        && isValidApplication(incoming())
+        && incoming().id == appId
+        && incoming().candidateId == request.auth.uid
+        && incoming().status == 'Applied'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/jobs/$(incoming().jobId));
+      allow update: if isVerified() && isValidId(appId)
+        && isValidApplication(incoming())
+        && incoming().id == existing().id
+        && incoming().jobId == existing().jobId
+        && incoming().recruiterId == existing().recruiterId
+        && incoming().candidateId == existing().candidateId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (existing().recruiterId == request.auth.uid
+            && !(existing().status in ['Selected', 'Rejected'])
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'remarks', 'updatedAt']))
+          ||
+          (existing().recruiterId == request.auth.uid
+            && incoming().status == existing().status
+            && incoming().diff(existing()).affectedKeys().hasOnly(['remarks', 'updatedAt']))
+        );
+      allow delete: if isVerified() && isValidId(appId) && existing().candidateId == request.auth.uid && existing().status == 'Applied';
+    }
+
+    match /saved_jobs/{savedId} {
+      allow get: if isSignedIn() && isValidId(savedId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidId(savedId)
+        && isValidSavedJob(incoming())
+        && incoming().id == savedId
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/jobs/$(incoming().jobId));
+      allow update: if false;
+      allow delete: if isVerified() && isValidId(savedId) && existing().userId == request.auth.uid;
+    }
+
+    match /shortlisted_candidates/{shortlistId} {
+      allow get: if isSignedIn() && isValidId(shortlistId) && (existing().recruiterId == request.auth.uid || existing().candidateId == request.auth.uid);
+      allow list: if isSignedIn() && (resource.data.recruiterId == request.auth.uid || resource.data.candidateId == request.auth.uid);
+      allow create: if isVerified() && isValidId(shortlistId)
+        && isValidShortlistedCandidate(incoming())
+        && incoming().id == shortlistId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isRecruiter();
+      allow update: if isVerified() && isValidId(shortlistId) && existing().recruiterId == request.auth.uid
+        && isValidShortlistedCandidate(incoming())
+        && incoming().id == existing().id
+        && incoming().recruiterId == existing().recruiterId
+        && incoming().candidateId == existing().candidateId
+        && incoming().jobId == existing().jobId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['notes', 'matchScore', 'updatedAt']);
+      allow delete: if isVerified() && isValidId(shortlistId) && existing().recruiterId == request.auth.uid;
+    }
+
+    match /notifications/{notifId} {
+      allow get: if isSignedIn() && isValidId(notifId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidId(notifId)
+        && isValidNotification(incoming())
+        && incoming().id == notifId
+        && incoming().createdAt == request.time
+        && (incoming().userId == request.auth.uid || isRecruiter());
+      allow update: if isVerified() && isValidId(notifId) && existing().userId == request.auth.uid
+        && isValidNotification(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().title == existing().title
+        && incoming().message == existing().message
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      allow delete: if isVerified() && isValidId(notifId) && existing().userId == request.auth.uid;
+    }
+  }
+}

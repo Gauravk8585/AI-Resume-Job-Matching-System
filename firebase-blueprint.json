@@ -1,0 +1,263 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "User Account",
+      "description": "Private user authentication and role metadata.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 200 },
+        "displayName": { "type": "string", "maxLength": 120 },
+        "role": { "type": "string", "enum": ["candidate", "recruiter"] },
+        "photoURL": { "type": "string", "maxLength": 500 },
+        "companyName": { "type": "string", "maxLength": 150 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "role", "createdAt", "updatedAt"]
+    },
+    "CandidateProfile": {
+      "title": "Candidate Profile",
+      "description": "Candidate portfolio, skills, education, and experience profile.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fullName": { "type": "string", "maxLength": 120 },
+        "headline": { "type": "string", "maxLength": 200 },
+        "location": { "type": "string", "maxLength": 150 },
+        "education": { "type": "string", "maxLength": 200 },
+        "university": { "type": "string", "maxLength": 200 },
+        "graduationYear": { "type": "string", "maxLength": 20 },
+        "technicalSkills": { "type": "array" },
+        "softSkills": { "type": "array" },
+        "experience": { "type": "array" },
+        "projects": { "type": "array" },
+        "certifications": { "type": "array" },
+        "linkedIn": { "type": "string", "maxLength": 300 },
+        "github": { "type": "string", "maxLength": 300 },
+        "photoURL": { "type": "string", "maxLength": 500 },
+        "isOpenToWork": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "fullName", "isOpenToWork", "createdAt", "updatedAt"]
+    },
+    "RecruiterProfile": {
+      "title": "Recruiter Profile",
+      "description": "Employer and recruiter profile details.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fullName": { "type": "string", "maxLength": 120 },
+        "companyName": { "type": "string", "maxLength": 150 },
+        "companyWebsite": { "type": "string", "maxLength": 300 },
+        "location": { "type": "string", "maxLength": 150 },
+        "industry": { "type": "string", "maxLength": 100 },
+        "photoURL": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "fullName", "companyName", "createdAt", "updatedAt"]
+    },
+    "ResumeDocument": {
+      "title": "Resume Document",
+      "description": "Uploaded resume metadata, raw text, and AI-parsed output.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fileName": { "type": "string", "maxLength": 255 },
+        "fileSize": { "type": "number" },
+        "fileType": { "type": "string", "maxLength": 80 },
+        "rawText": { "type": "string", "maxLength": 50000 },
+        "summary": { "type": "string", "maxLength": 3000 },
+        "status": { "type": "string", "enum": ["pending", "analyzed", "failed"] },
+        "isSharedWithRecruiters": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "fileName", "status", "isSharedWithRecruiters", "createdAt", "updatedAt"]
+    },
+    "ExtractedSkills": {
+      "title": "Extracted Skills",
+      "description": "Normalized skill categories extracted from a candidate resume.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "resumeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "technicalSkills": { "type": "array" },
+        "programmingLanguages": { "type": "array" },
+        "frameworks": { "type": "array" },
+        "tools": { "type": "array" },
+        "softSkills": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "resumeId", "createdAt", "updatedAt"]
+    },
+    "JobPosting": {
+      "title": "Job Posting",
+      "description": "Vacancy created by a recruiter.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "recruiterId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "maxLength": 150 },
+        "companyName": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 15000 },
+        "requiredSkills": { "type": "array" },
+        "preferredSkills": { "type": "array" },
+        "educationRequirement": { "type": "string", "maxLength": 200 },
+        "experienceRequired": { "type": "string", "maxLength": 100 },
+        "salaryRange": { "type": "string", "maxLength": 100 },
+        "location": { "type": "string", "maxLength": 150 },
+        "jobType": { "type": "string", "maxLength": 60 },
+        "vacancies": { "type": "number" },
+        "deadline": { "type": "string", "maxLength": 40 },
+        "status": { "type": "string", "enum": ["published", "draft", "closed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "recruiterId", "title", "companyName", "status", "createdAt", "updatedAt"]
+    },
+    "JobMatch": {
+      "title": "Job Match",
+      "description": "Explainable AI match score between a candidate resume and a job posting.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "jobId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "resumeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "recruiterId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "overallScore": { "type": "number" },
+        "skillsMatch": { "type": "number" },
+        "educationMatch": { "type": "number" },
+        "experienceMatch": { "type": "number" },
+        "projectRelevance": { "type": "number" },
+        "locationMatch": { "type": "number" },
+        "matchedSkills": { "type": "array" },
+        "missingSkills": { "type": "array" },
+        "explanation": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "jobId", "resumeId", "recruiterId", "overallScore", "createdAt", "updatedAt"]
+    },
+    "JobApplication": {
+      "title": "Job Application",
+      "description": "Candidate job application tracked by both candidate and recruiter.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "jobId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "recruiterId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "candidateId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "candidateName": { "type": "string", "maxLength": 120 },
+        "candidateEmail": { "type": "string", "maxLength": 200 },
+        "resumeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "jobTitle": { "type": "string", "maxLength": 150 },
+        "companyName": { "type": "string", "maxLength": 150 },
+        "matchScore": { "type": "number" },
+        "status": {
+          "type": "string",
+          "enum": ["Applied", "Under Review", "Shortlisted", "Interview Scheduled", "Selected", "Rejected"]
+        },
+        "remarks": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "jobId", "recruiterId", "candidateId", "status", "createdAt", "updatedAt"]
+    },
+    "SavedJob": {
+      "title": "Saved Job",
+      "description": "Bookmarked job opportunity for a candidate.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "jobId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "jobId", "createdAt"]
+    },
+    "ShortlistedCandidate": {
+      "title": "Shortlisted Candidate",
+      "description": "Candidate shortlisted by a recruiter for a vacancy.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "recruiterId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "candidateId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "jobId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "matchScore": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "recruiterId", "candidateId", "jobId", "createdAt", "updatedAt"]
+    },
+    "NotificationItem": {
+      "title": "Notification",
+      "description": "In-app notification for a candidate or recruiter.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "maxLength": 150 },
+        "message": { "type": "string", "maxLength": 500 },
+        "type": { "type": "string", "enum": ["match", "application", "shortlist", "analysis", "system"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "message", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Private user account and role record."
+    },
+    "/candidate_profiles/{userId}": {
+      "schema": { "$ref": "#/entities/CandidateProfile" },
+      "description": "Candidate profile details."
+    },
+    "/recruiter_profiles/{userId}": {
+      "schema": { "$ref": "#/entities/RecruiterProfile" },
+      "description": "Recruiter profile details."
+    },
+    "/resumes/{resumeId}": {
+      "schema": { "$ref": "#/entities/ResumeDocument" },
+      "description": "Uploaded candidate resumes and AI analysis results."
+    },
+    "/extracted_skills/{skillDocId}": {
+      "schema": { "$ref": "#/entities/ExtractedSkills" },
+      "description": "Normalized skills extracted from resumes."
+    },
+    "/jobs/{jobId}": {
+      "schema": { "$ref": "#/entities/JobPosting" },
+      "description": "Job postings published by recruiters."
+    },
+    "/job_matches/{matchId}": {
+      "schema": { "$ref": "#/entities/JobMatch" },
+      "description": "AI job match evaluations."
+    },
+    "/applications/{appId}": {
+      "schema": { "$ref": "#/entities/JobApplication" },
+      "description": "Candidate job applications."
+    },
+    "/saved_jobs/{savedId}": {
+      "schema": { "$ref": "#/entities/SavedJob" },
+      "description": "Candidate saved/bookmarked jobs."
+    },
+    "/shortlisted_candidates/{shortlistId}": {
+      "schema": { "$ref": "#/entities/ShortlistedCandidate" },
+      "description": "Recruiter shortlisted candidates."
+    },
+    "/notifications/{notifId}": {
+      "schema": { "$ref": "#/entities/NotificationItem" },
+      "description": "User in-app notifications."
+    }
+  }
+}

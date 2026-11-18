@@ -1,0 +1,10 @@
+{
+  "appId": "com.airesume.jobmatching",
+  "appName": "ResumeMatch AI",
+  "webDir": "dist",
+  "server": {
+    "url": "https://ais-pre-bxxfcfvb5pany3fxyirgwc-134262847465.asia-northeast1.run.app",
+    "cleartext": false,
+    "androidScheme": "https"
+  }
+}

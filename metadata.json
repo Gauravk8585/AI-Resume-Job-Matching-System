@@ -1,0 +1,6 @@
+{
+  "name": "AI Resume & Job Matching System",
+  "description": "AI-powered resume parsing, explainable job matching, skill gap analysis, and recruiter candidate ranking platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

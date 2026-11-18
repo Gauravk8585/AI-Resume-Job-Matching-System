@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6D73F6" />
+      <stop offset="50%" stop-color="#6425E8" />
+      <stop offset="100%" stop-color="#4A14C8" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  <!-- Document / Resume sheet -->
+  <rect x="136" y="108" width="212" height="276" rx="28" fill="#FFFFFF" fill-opacity="0.96" />
+  <circle cx="196" cy="176" r="24" fill="#E0E7FF" />
+  <path d="M180 218c0-10 7-16 16-16s16 6 16 16" stroke="#6425E8" stroke-width="10" stroke-linecap="round" />
+  <rect x="236" y="162" width="82" height="14" rx="7" fill="#C7D2FE" />
+  <rect x="236" y="188" width="60" height="12" rx="6" fill="#E2E8F0" />
+  <rect x="172" y="248" width="140" height="14" rx="7" fill="#E0E7FF" />
+  <rect x="172" y="278" width="120" height="14" rx="7" fill="#E2E8F0" />
+  <rect x="172" y="308" width="96" height="14" rx="7" fill="#E2E8F0" />
+  <!-- AI Match Magnifier / Check Badge -->
+  <circle cx="348" cy="348" r="76" fill="#211747" stroke="#FFFFFF" stroke-width="14" />
+  <path d="M318 348l20 20 42-42" stroke="#34D399" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
